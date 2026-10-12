@@ -83,6 +83,7 @@ export default function Home() {
   const [pickupTime, setPickupTime] = useState("");
   const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState("");
   const [comments, setComments] = useState("");
+  const [statusDescription, setStatusDescription] = useState("");
   const [error, setError] = useState(null);
   const [currentLocation, setCurrentLocation] = useState("");
   const [locationUpdateTime, setLocationUpdateTime] = useState("");
@@ -95,6 +96,20 @@ export default function Home() {
   const [width, setWidth] = useState("");
   const [height, setHeight] = useState("");
   const [productWeight, setProductWeight] = useState("");
+  const [packageDetails, setPackageDetails] = useState([
+    { productType: "", description: "", quantity: 1, length: "", width: "", height: "", productWeight: "" },
+  ]);
+  const addPackage = () =>
+    setPackageDetails((prev) => [
+      ...prev,
+      { productType: "", description: "", quantity: 1, length: "", width: "", height: "", productWeight: "" },
+    ]);
+  const removePackage = (index) =>
+    setPackageDetails((prev) => prev.filter((_, i) => i !== index));
+  const updatePackage = (index, field, value) =>
+    setPackageDetails((prev) =>
+      prev.map((pkg, i) => (i === index ? { ...pkg, [field]: value } : pkg))
+    );
 
   const [trackingNumber, setTrackingNumber] = useState(null);
   const [trackingEvents, setTrackingEvents] = useState([]);
@@ -135,6 +150,11 @@ export default function Home() {
   });
   const [allShipments, setAllShipments] = useState([]);
   const [loadingStats, setLoadingStats] = useState(false);
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const handleRemoveEvent = (index) => {
     setTrackingEvents((events) => events.filter((_, i) => i !== index));
   };
@@ -469,6 +489,8 @@ export default function Home() {
 
         // Additional Fields
         comments,
+        statusDescription,
+        packageDetails,
         featuredImage: imageUploadResult
           ? imageUploadResult.url // Use Cloudinary URL if upload successful
           : imageBase64,
@@ -651,6 +673,7 @@ export default function Home() {
         // Additional Fields
         comments: shipment.comments || "",
         courier: shipment.courier || "",
+        statusDescription: shipment.statusDescription || "",
 
         // Tracking Events
         trackingEvents: trackingEvents || [],
@@ -1021,6 +1044,38 @@ export default function Home() {
                     />
                   </svg>
                   Review Shipment
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => setActiveAside("Settings")}
+                  className={`w-full flex items-center px-3 py-2.5 text-sm font-medium transition-all ${
+                    activeAside === "Settings"
+                      ? "bg-[#f97316] text-white border-l-4 border-[#ea580c]"
+                      : "text-gray-700 hover:bg-gray-50 hover:text-[#f97316] border-l-4 border-transparent"
+                  }`}
+                  style={{ borderRadius: 0 }}
+                >
+                  <svg
+                    className="h-5 w-5 mr-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                  Settings
                 </button>
               </li>
             </ul>
@@ -2195,6 +2250,19 @@ export default function Home() {
                     placeholder="Enter any additional comments"
                   />
                 </div>
+                <div className="md:col-span-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status Description
+                  </label>
+                  <textarea
+                    value={statusDescription}
+                    onChange={(e) => setStatusDescription(e.target.value)}
+                    className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all"
+                    style={{ borderRadius: 0 }}
+                    rows={3}
+                    placeholder="Describe what is currently happening with this shipment (e.g. Package awaiting customs clearance at Miami hub)..."
+                  />
+                </div>
               </div>
             </div>
 
@@ -2209,130 +2277,139 @@ export default function Home() {
                     className="w-8 h-8 bg-[#f97316] flex items-center justify-center mr-3"
                     style={{ borderRadius: 0 }}
                   >
-                    <svg
-                      className="w-5 h-5 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                      />
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                     </svg>
                   </div>
                   Package Details
                 </h2>
+                <button
+                  type="button"
+                  onClick={addPackage}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#f97316] text-white text-sm font-semibold hover:bg-[#ea580c] transition-all"
+                  style={{ borderRadius: 0 }}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add Package
+                </button>
               </div>
-              <div className="grid md:grid-cols-4 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Quantity
-                  </label>
-                  <input
-                    type="number"
-                    value={productQuantity}
-                    onChange={(e) => setProductQuantity(e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all"
-                    style={{ borderRadius: 0 }}
-                    placeholder="Enter quantity"
-                  />
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Piece Type
-                  </label>
-                  <select
-                    value={productType}
-                    onChange={(e) => setProductType(e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all"
-                    style={{ borderRadius: 0 }}
-                  >
-                    <option value="">Select Type</option>
-                    <option value="Pallet">Pallet</option>
-                    <option value="Car">Car</option>
-                    <option value="Carton">Carton</option>
-                    <option value="Crate">Crate</option>
-                    <option value="Loose">Loose</option>
-                    <option value="Box">Box</option>
-                    <option value="Others">Others</option>
-                    <option value="Discreet">Discreet</option>
-                    <option value="Bike">Bike</option>
-                  </select>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description
-                  </label>
-                  <input
-                    type="text"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all"
-                    style={{ borderRadius: 0 }}
-                    placeholder="Enter package description"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Length (cm)
-                  </label>
-                  <input
-                    type="number"
-                    value={length}
-                    onChange={(e) => setLength(e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all"
-                    style={{ borderRadius: 0 }}
-                    placeholder="Enter length"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Width (cm)
-                  </label>
-                  <input
-                    type="number"
-                    value={width}
-                    onChange={(e) => setWidth(e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all"
-                    style={{ borderRadius: 0 }}
-                    placeholder="Enter width"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Height (cm)
-                  </label>
-                  <input
-                    type="number"
-                    value={height}
-                    onChange={(e) => setHeight(e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all"
-                    style={{ borderRadius: 0 }}
-                    placeholder="Enter height"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Weight (g)
-                  </label>
-                  <input
-                    type="number"
-                    value={productWeight}
-                    onChange={(e) => setProductWeight(e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all"
-                    style={{ borderRadius: 0 }}
-                    placeholder="Enter weight"
-                  />
-                </div>
+              <div className="space-y-6">
+                {packageDetails.map((pkg, index) => (
+                  <div key={index} className="border-2 border-gray-100 p-4" style={{ borderRadius: 0 }}>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-sm font-bold text-[#f97316] uppercase tracking-wide">
+                        Package {index + 1}
+                      </span>
+                      {packageDetails.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removePackage(index)}
+                          className="flex items-center gap-1 px-3 py-1 bg-red-50 text-red-600 text-xs font-semibold border-2 border-red-200 hover:bg-red-100 transition-all"
+                          style={{ borderRadius: 0 }}
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid md:grid-cols-4 gap-4 mb-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                        <input
+                          type="number"
+                          value={pkg.quantity}
+                          onChange={(e) => updatePackage(index, "quantity", e.target.value)}
+                          className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all"
+                          style={{ borderRadius: 0 }}
+                          placeholder="Qty"
+                          min="1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Piece Type</label>
+                        <select
+                          value={pkg.productType}
+                          onChange={(e) => updatePackage(index, "productType", e.target.value)}
+                          className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all"
+                          style={{ borderRadius: 0 }}
+                        >
+                          <option value="">Select Type</option>
+                          <option value="Pallet">Pallet</option>
+                          <option value="Car">Car</option>
+                          <option value="Carton">Carton</option>
+                          <option value="Crate">Crate</option>
+                          <option value="Loose">Loose</option>
+                          <option value="Box">Box</option>
+                          <option value="Others">Others</option>
+                          <option value="Discreet">Discreet</option>
+                          <option value="Bike">Bike</option>
+                        </select>
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                        <input
+                          type="text"
+                          value={pkg.description}
+                          onChange={(e) => updatePackage(index, "description", e.target.value)}
+                          className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all"
+                          style={{ borderRadius: 0 }}
+                          placeholder="Enter package description"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid md:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Length (cm)</label>
+                        <input
+                          type="number"
+                          value={pkg.length}
+                          onChange={(e) => updatePackage(index, "length", e.target.value)}
+                          className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all"
+                          style={{ borderRadius: 0 }}
+                          placeholder="Length"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Width (cm)</label>
+                        <input
+                          type="number"
+                          value={pkg.width}
+                          onChange={(e) => updatePackage(index, "width", e.target.value)}
+                          className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all"
+                          style={{ borderRadius: 0 }}
+                          placeholder="Width"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Height (cm)</label>
+                        <input
+                          type="number"
+                          value={pkg.height}
+                          onChange={(e) => updatePackage(index, "height", e.target.value)}
+                          className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all"
+                          style={{ borderRadius: 0 }}
+                          placeholder="Height"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Weight (g)</label>
+                        <input
+                          type="number"
+                          value={pkg.productWeight}
+                          onChange={(e) => updatePackage(index, "productWeight", e.target.value)}
+                          className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all"
+                          style={{ borderRadius: 0 }}
+                          placeholder="Weight"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
             {/* Featured Image Upload */}
@@ -2862,6 +2939,21 @@ export default function Home() {
                         }
                         className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all"
                         style={{ borderRadius: 0 }}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Status Description
+                      </label>
+                      <textarea
+                        value={shipment.statusDescription || ""}
+                        onChange={(e) =>
+                          setShipment({ ...shipment, statusDescription: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all"
+                        style={{ borderRadius: 0 }}
+                        rows={2}
+                        placeholder="Describe the current status (e.g. Package awaiting customs clearance at Miami hub)..."
                       />
                     </div>
                     <div>
@@ -3937,6 +4029,124 @@ export default function Home() {
                 </div>
               </div>
             )}
+          </div>
+        </section>
+      )}
+      {/* Settings */}
+      {activeAside === "Settings" && (
+        <section className="pt-20 sm:pt-24 px-3 sm:px-4 lg:px-6 pb-8 bg-gray-50 min-h-screen">
+          <div className="max-w-xl mx-auto">
+            {/* Header */}
+            <div className="mb-8">
+              <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+              <p className="text-sm text-gray-500 mt-1">Manage your admin account</p>
+            </div>
+
+            {/* Change Password Card */}
+            <div className="bg-white border-2 border-gray-200 p-6">
+              <div className="flex items-center mb-6">
+                <div className="w-10 h-10 bg-orange-100 flex items-center justify-center mr-3" style={{ borderRadius: 0 }}>
+                  <svg className="h-5 w-5 text-[#f97316]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-gray-900">Change Password</h2>
+                  <p className="text-xs text-gray-500">Update your admin login password</p>
+                </div>
+              </div>
+
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (newPassword !== confirmPassword) {
+                    toast.error("New passwords do not match");
+                    return;
+                  }
+                  setIsChangingPassword(true);
+                  try {
+                    const res = await fetch("/api/changePassword", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ currentPassword, newPassword }),
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                      toast.success("Password updated successfully");
+                      setCurrentPassword("");
+                      setNewPassword("");
+                      setConfirmPassword("");
+                    } else {
+                      toast.error(data.message || "Failed to update password");
+                    }
+                  } catch {
+                    toast.error("An error occurred. Please try again.");
+                  } finally {
+                    setIsChangingPassword(false);
+                  }
+                }}
+                className="space-y-4"
+              >
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Current Password
+                  </label>
+                  <input
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    required
+                    placeholder="Enter current password"
+                    className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all text-sm"
+                    style={{ borderRadius: 0 }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    New Password
+                  </label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    placeholder="Enter new password"
+                    className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all text-sm"
+                    style={{ borderRadius: 0 }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirm New Password
+                  </label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    placeholder="Confirm new password"
+                    className="w-full px-3 py-2 border-2 border-gray-300 focus:ring-2 focus:ring-orange-100 focus:border-[#f97316] transition-all text-sm"
+                    style={{ borderRadius: 0 }}
+                  />
+                  {confirmPassword && newPassword !== confirmPassword && (
+                    <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
+                  )}
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={isChangingPassword}
+                    className="w-full py-2.5 px-4 bg-[#f97316] text-white text-sm font-semibold hover:bg-[#ea580c] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                    style={{ borderRadius: 0 }}
+                  >
+                    {isChangingPassword ? "Updating..." : "Update Password"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </section>
       )}
