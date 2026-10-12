@@ -201,7 +201,8 @@ export default function RootLayout({ children }) {
           <Toaster position="top-right" richColors />
           {children}
           <Script
-            src="https://embed.tawk.to/69a131f44e6f551c35b71ae6/1jieqm8tq"
+            id="chatway"
+            src="https://cdn.chatway.app/widget.js?id=zIaqhTmT7lrq"
             async
           ></Script>
         </ShipmentProvider>
